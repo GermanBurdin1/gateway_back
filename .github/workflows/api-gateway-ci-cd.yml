@@ -93,5 +93,4 @@ jobs:
         ssh -i ~/.ssh/id_deploy -p "${OVH_PORT:-22}" "${OVH_USER}@${OVH_HOST}" "
           cd ${REMOTE_DIR} && 
           npm ci --production && 
-          pm2 restart api-gateway || pm2 start dist/main.js --name api-gateway --env production
-        "
+          pm2 restart api-gateway || pm2 start dist/main.js --name api-gateway --env production"
