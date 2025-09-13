@@ -76,7 +76,7 @@ jobs:
         # Создаем директорию на сервере
         ssh -i ~/.ssh/id_deploy -p "${OVH_PORT:-22}" "${OVH_USER}@${OVH_HOST}" "mkdir -p ${REMOTE_DIR}"
         
-        # Копируем файлы
+        # on copie les fichiers
         rsync -avz --delete --exclude='.user.ini' \
           -e "ssh -i ~/.ssh/id_deploy -p ${OVH_PORT:-22}" \
           dist/ "${OVH_USER}@${OVH_HOST}:${REMOTE_DIR}/dist/"
