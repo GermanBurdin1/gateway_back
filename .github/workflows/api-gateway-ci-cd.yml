@@ -95,3 +95,4 @@ jobs:
           npm ci --production && 
           pm2 restart api-gateway || pm2 start dist/main.js --name api-gateway --env production
         "
+        
