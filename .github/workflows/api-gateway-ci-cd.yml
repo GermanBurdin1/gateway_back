@@ -1,14 +1,10 @@
 name: API Gateway CI/CD
 
+# Workflow for API Gateway deployment
 on:
   push:
-    branches: [ master, develop ]
-    paths:
-      - 'services/api-gateway/**'
-  pull_request:
     branches: [ master ]
-    paths:
-      - 'services/api-gateway/**'
+  pull_request:
 
 jobs:
   test:
