@@ -19,18 +19,15 @@ jobs:
       with:
         node-version: '18'
         cache: 'npm'
-        cache-dependency-path: services/api-gateway/package-lock.json
+        cache-dependency-path: package-lock.json
         
     - name: Install dependencies
-      working-directory: ./services/api-gateway
       run: npm ci
       
     - name: Run linter
-      working-directory: ./services/api-gateway
       run: npm run lint:check
       
     - name: Build application
-      working-directory: ./services/api-gateway
       run: npm run build
 
   deploy:
@@ -47,14 +44,12 @@ jobs:
       with:
         node-version: '18'
         cache: 'npm'
-        cache-dependency-path: services/api-gateway/package-lock.json
+        cache-dependency-path: package-lock.json
         
     - name: Install dependencies
-      working-directory: ./services/api-gateway
       run: npm ci
       
     - name: Build application
-      working-directory: ./services/api-gateway
       run: npm run build
       
     - name: Deploy to server
@@ -77,13 +72,13 @@ jobs:
         # Копируем файлы
         rsync -avz --delete --exclude='.user.ini' \
           -e "ssh -i ~/.ssh/id_deploy -p ${OVH_PORT:-22}" \
-          services/api-gateway/dist/ "${OVH_USER}@${OVH_HOST}:${REMOTE_DIR}/dist/"
+          dist/ "${OVH_USER}@${OVH_HOST}:${REMOTE_DIR}/dist/"
         rsync -avz --exclude='.user.ini' \
           -e "ssh -i ~/.ssh/id_deploy -p ${OVH_PORT:-22}" \
-          services/api-gateway/package.json "${OVH_USER}@${OVH_HOST}:${REMOTE_DIR}/"
+          package.json "${OVH_USER}@${OVH_HOST}:${REMOTE_DIR}/"
         rsync -avz --exclude='.user.ini' \
           -e "ssh -i ~/.ssh/id_deploy -p ${OVH_PORT:-22}" \
-          services/api-gateway/node_modules/ "${OVH_USER}@${OVH_HOST}:${REMOTE_DIR}/node_modules/"
+          node_modules/ "${OVH_USER}@${OVH_HOST}:${REMOTE_DIR}/node_modules/"
           
         # Устанавливаем зависимости на сервере и перезапускаем сервис
         ssh -i ~/.ssh/id_deploy -p "${OVH_PORT:-22}" "${OVH_USER}@${OVH_HOST}" "
