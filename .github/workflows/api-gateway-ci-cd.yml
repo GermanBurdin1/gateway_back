@@ -63,18 +63,11 @@ jobs:
         chmod 700 ~/.ssh
         echo "$SSH_KEY" > ~/.ssh/id_deploy
         chmod 600 ~/.ssh/id_deploy
-        
-        # Debug: проверяем формат ключа
-        echo "=== SSH Key Debug ==="
-        head -1 ~/.ssh/id_deploy
-        tail -1 ~/.ssh/id_deploy
-        wc -l ~/.ssh/id_deploy
-        echo "==================="
         ssh-keyscan -p "${OVH_PORT:-22}" "$OVH_HOST" >> ~/.ssh/known_hosts
         chmod 600 ~/.ssh/known_hosts
         
         # Создаем директорию на сервере
-        ssh -i ~/.ssh/id_deploy -p "${OVH_PORT:-22}" "${OVH_USER}@${OVH_HOST}" "mkdir -p ${REMOTE_DIR}"
+        ssh -i ~/.ssh/id_deploy -p "${OVH_PORT:-22}" "${OVH_USER}@${OVH_HOST}" "sudo mkdir -p ${REMOTE_DIR} && sudo chown -R \${USER}:\${USER} ${REMOTE_DIR}"
         
         # on copie les fichiers
         rsync -avz --delete --exclude='.user.ini' \
