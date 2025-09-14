@@ -75,6 +75,9 @@ jobs:
           dist/ "${OVH_USER}@${OVH_HOST}:${REMOTE_DIR}/dist/"
         rsync -avz --exclude='.user.ini' \
           -e "ssh -i ~/.ssh/id_deploy -p ${OVH_PORT:-22}" \
+          package-lock.json "${OVH_USER}@${OVH_HOST}:${REMOTE_DIR}/"
+        rsync -avz --exclude='.user.ini' \
+          -e "ssh -i ~/.ssh/id_deploy -p ${OVH_PORT:-22}" \
           package.json "${OVH_USER}@${OVH_HOST}:${REMOTE_DIR}/"
         rsync -avz --exclude='.user.ini' \
           -e "ssh -i ~/.ssh/id_deploy -p ${OVH_PORT:-22}" \
@@ -83,5 +86,5 @@ jobs:
         # Устанавливаем зависимости на сервере и перезапускаем сервис
         ssh -i ~/.ssh/id_deploy -p "${OVH_PORT:-22}" "${OVH_USER}@${OVH_HOST}" "
           cd ${REMOTE_DIR} && 
-          npm ci --production && 
-          pm2 restart api-gateway || pm2 start dist/main.js --name api-gateway --env production"
+          npm install --production && 
+          pm2 restart api-gateway -f || pm2 start dist/main.js --name api-gateway"
