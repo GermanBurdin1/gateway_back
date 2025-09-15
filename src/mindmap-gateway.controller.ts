@@ -1,62 +1,49 @@
-import { Controller, All, Req, Res, Logger } from "@nestjs/common";
-import { HttpService } from "@nestjs/axios";
-import { firstValueFrom } from "rxjs";
-import { Request, Response } from "express";
+// mindmap-gateway.controller.ts
+import { Controller, All, Req, Res, Logger } from '@nestjs/common';
+import { HttpService } from '@nestjs/axios';
+import { firstValueFrom } from 'rxjs';
+import { Request, Response } from 'express';
+import http from 'http';
 
-@Controller("mindmap")
+@Controller('mindmap')
 export class MindmapGatewayController {
   private readonly logger = new Logger(MindmapGatewayController.name);
-  private readonly mindmapServiceUrl = "http://127.0.0.1:3002";
+
+  // лучше через ENV, по умолчанию IPv4
+  private readonly mindmapServiceUrl =
+    process.env.MINDMAP_BASE_URL || 'http://127.0.0.1:3002';
 
   constructor(private readonly httpService: HttpService) {}
 
-  @All("*")
+  @All('*')
   async proxyToMindmapService(@Req() req: Request, @Res() res: Response) {
-    // Убираем /api/mindmap из пути для Mindmap Service
-    let targetPath = req.path.replace("/api/mindmap", "");
-    if (!targetPath) targetPath = "/";
-
+    // ВАЖНО: убираем только глобальный префикс /api, а /mindmap оставляем
+    const original = req.originalUrl;                    // напр. /api/mindmap, /api/mindmap/123
+    const targetPath = original.replace(/^\/api/, '') || '/'; // -> /mindmap, /mindmap/123
     const url = `${this.mindmapServiceUrl}${targetPath}`;
 
-    this.logger.log(`[API Gateway] ${req.method} ${req.url} -> ${url}`);
+    this.logger.log(`[API Gateway] ${req.method} ${original} -> ${url}`);
 
     try {
-      const requestConfig: any = {
-        method: req.method,
-        url: `${this.mindmapServiceUrl}${targetPath}`,
-        headers: {
-          ...req.headers,
-          host: undefined,
-        },
-        data: req.body,
-      };
-
-      if (req.method === "GET" && Object.keys(req.query).length > 0) {
-        requestConfig.params = req.query;
-      }
-
       const response = await firstValueFrom(
-        this.httpService.request(requestConfig),
+        this.httpService.request({
+          method: req.method,
+          url,
+          httpAgent: new http.Agent({ family: 4 }),      // избегаем ::1
+          headers: { ...req.headers, host: undefined },
+          data: req.body,
+          params: req.method === 'GET' ? req.query : undefined,
+          timeout: 10000,
+        }),
       );
 
-      Object.keys(response.headers).forEach((key) => {
-        res.setHeader(key, response.headers[key]);
-      });
-
-      res.status(response.status).json(response.data);
-    } catch (error) {
-      this.logger.error(
-        `[API Gateway] Ошибка при проксировании к mindmap-service: ${error.message}`,
-      );
-
-      if (error.response) {
-        res.status(error.response.status).json(error.response.data);
-      } else {
-        res.status(500).json({
-          error: "Gateway Error",
-          message: "Ошибка API Gateway",
-        });
-      }
+      for (const [k, v] of Object.entries(response.headers)) res.setHeader(k, v as any);
+      // не навязываем json, отдаём как пришло
+      res.status(response.status).send(response.data);
+    } catch (e: any) {
+      this.logger.error(`[API Gateway] Proxy error: ${e.message}`);
+      if (e.response) res.status(e.response.status).send(e.response.data);
+      else res.status(502).json({ error: 'Bad Gateway', message: 'Mindmap service unreachable' });
     }
   }
 }
