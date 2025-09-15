@@ -3,7 +3,7 @@ import { Controller, All, Req, Res, Logger } from "@nestjs/common";
 import { HttpService } from "@nestjs/axios";
 import { firstValueFrom } from "rxjs";
 import { Request, Response } from "express";
-import http from "http";
+import { Agent as HttpAgent } from 'http';
 
 @Controller("mindmap")
 export class MindmapGatewayController {
@@ -29,7 +29,7 @@ export class MindmapGatewayController {
         this.httpService.request({
           method: req.method,
           url,
-          httpAgent: new http.Agent({ family: 4 }), // избегаем ::1
+          httpAgent: new HttpAgent({ family: 4 }), // избегаем ::1
           headers: { ...req.headers, host: undefined },
           data: req.body,
           params: req.method === "GET" ? req.query : undefined,
