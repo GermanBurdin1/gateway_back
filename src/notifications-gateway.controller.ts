@@ -13,7 +13,20 @@ export class NotificationsGatewayController {
   @All("*")
   async proxyToNotificationsService(@Req() req: Request, @Res() res: Response) {
     const decodedUrl = decodeURIComponent(req.url);
-    const url = `${this.notificationsServiceUrl}${decodedUrl}`;
+    let targetUrl = decodedUrl;
+
+    // Преобразуем /notifications в /notifications для Notifications Service
+    // Но если запрос к /notifications без параметров, возвращаем 404
+    if (targetUrl === "/notifications" && req.method === "GET") {
+      res.status(404).json({
+        message: "Notifications endpoint requires userId parameter",
+        error: "Not Found",
+        statusCode: 404
+      });
+      return;
+    }
+
+    const url = `${this.notificationsServiceUrl}${targetUrl}`;
 
     this.logger.log(`[API Gateway] ${req.method} ${req.url} -> ${url}`);
 
