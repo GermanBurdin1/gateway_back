@@ -45,12 +45,10 @@ export class MindmapGatewayController {
       this.logger.error(`[API Gateway] Proxy error: ${e.message}`);
       if (e.response) res.status(e.response.status).send(e.response.data);
       else
-        res
-          .status(502)
-          .json({
-            error: "Bad Gateway",
-            message: "Mindmap service unreachable",
-          });
+        res.status(502).json({
+          error: "Bad Gateway",
+          message: "Mindmap service unreachable",
+        });
     }
   }
 }
