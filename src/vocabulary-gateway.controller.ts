@@ -13,14 +13,27 @@ export class VocabularyGatewayController {
   @All("*")
   async proxyToVocabularyService(@Req() req: Request, @Res() res: Response) {
     const decodedUrl = decodeURIComponent(req.url);
-    const url = `${this.vocabularyServiceUrl}${decodedUrl}`;
+    let targetUrl = decodedUrl;
+
+    // Преобразуем /vocabulary/lexicon в /lexicon для Vocabulary Service
+    if (targetUrl.startsWith("/vocabulary/lexicon")) {
+      targetUrl = targetUrl.replace("/vocabulary/lexicon", "/lexicon");
+    }
+
+    const url = `${this.vocabularyServiceUrl}${targetUrl}`;
 
     this.logger.log(`[API Gateway] ${req.method} ${req.url} -> ${url}`);
 
     try {
+      // Преобразуем /vocabulary/lexicon в /lexicon для Vocabulary Service
+      let targetPath = req.path;
+      if (targetPath.startsWith("/vocabulary/lexicon")) {
+        targetPath = targetPath.replace("/vocabulary/lexicon", "/lexicon");
+      }
+
       const requestConfig: any = {
         method: req.method,
-        url: `${this.vocabularyServiceUrl}${req.path}`,
+        url: `${this.vocabularyServiceUrl}${targetPath}`,
         headers: {
           ...req.headers,
           host: undefined,

@@ -14,7 +14,14 @@ export class AuthGatewayController {
   async proxyToAuthService(@Req() req: Request, @Res() res: Response) {
     // Правильно декодируем URL
     const decodedUrl = decodeURIComponent(req.url);
-    const url = `${this.authServiceUrl}${decodedUrl}`;
+    let targetUrl = decodedUrl;
+
+    // Преобразуем /auth/goals в /goals для Auth Service
+    if (targetUrl.startsWith("/auth/goals")) {
+      targetUrl = targetUrl.replace("/auth/goals", "/goals");
+    }
+
+    const url = `${this.authServiceUrl}${targetUrl}`;
 
     this.logger.log(`[API Gateway] ${req.method} ${req.url} -> ${url}`);
     this.logger.log(`[API Gateway] Raw req.url:`, req.url);
@@ -23,10 +30,16 @@ export class AuthGatewayController {
     this.logger.log(`[API Gateway] Body:`, req.body);
 
     try {
+      // Преобразуем /auth/goals в /goals для Auth Service
+      let targetPath = req.path;
+      if (targetPath.startsWith("/auth/goals")) {
+        targetPath = targetPath.replace("/auth/goals", "/goals");
+      }
+
       // Если это GET запрос с query параметрами, используем params
       const requestConfig: any = {
         method: req.method,
-        url: `${this.authServiceUrl}${req.path}`, // Используем только path без query
+        url: `${this.authServiceUrl}${targetPath}`, // Используем только path без query
         headers: {
           ...req.headers,
           host: undefined,
