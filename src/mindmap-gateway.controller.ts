@@ -12,15 +12,18 @@ export class MindmapGatewayController {
 
   @All("*")
   async proxyToMindmapService(@Req() req: Request, @Res() res: Response) {
-    const decodedUrl = decodeURIComponent(req.url);
-    const url = `${this.mindmapServiceUrl}${decodedUrl}`;
+    // Убираем /api/mindmap из пути для Mindmap Service
+    let targetPath = req.path.replace('/api/mindmap', '');
+    if (!targetPath) targetPath = '/';
+    
+    const url = `${this.mindmapServiceUrl}${targetPath}`;
 
     this.logger.log(`[API Gateway] ${req.method} ${req.url} -> ${url}`);
 
     try {
       const requestConfig: any = {
         method: req.method,
-        url: `${this.mindmapServiceUrl}${req.path}`,
+        url: `${this.mindmapServiceUrl}${targetPath}`,
         headers: {
           ...req.headers,
           host: undefined,
