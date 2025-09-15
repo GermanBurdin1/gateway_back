@@ -14,12 +14,12 @@ export class FilesGatewayController {
   async proxyToFilesService(@Req() req: Request, @Res() res: Response) {
     const decodedUrl = decodeURIComponent(req.url);
     let targetUrl = decodedUrl;
-    
+
     // Преобразуем /files/materials в /materials для File Service
-    if (targetUrl.startsWith('/files/')) {
-      targetUrl = targetUrl.replace('/files/', '/');
+    if (targetUrl.startsWith("/files/")) {
+      targetUrl = targetUrl.replace("/files/", "/");
     }
-    
+
     const url = `${this.filesServiceUrl}${targetUrl}`;
 
     this.logger.log(`[API Gateway] ${req.method} ${req.url} -> ${url}`);
@@ -27,8 +27,8 @@ export class FilesGatewayController {
     try {
       // Преобразуем /files/materials в /materials для File Service
       let targetPath = req.path;
-      if (targetPath.startsWith('/files/')) {
-        targetPath = targetPath.replace('/files/', '/');
+      if (targetPath.startsWith("/files/")) {
+        targetPath = targetPath.replace("/files/", "/");
       }
 
       const requestConfig: any = {
