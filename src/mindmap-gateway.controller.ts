@@ -6,7 +6,7 @@ import { Request, Response } from "express";
 @Controller("mindmap")
 export class MindmapGatewayController {
   private readonly logger = new Logger(MindmapGatewayController.name);
-  private readonly mindmapServiceUrl = "http://localhost:3002";
+  private readonly mindmapServiceUrl = "http://127.0.0.1:3002";
 
   constructor(private readonly httpService: HttpService) {}
 
