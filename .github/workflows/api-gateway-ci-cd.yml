@@ -6,8 +6,12 @@ on:
     branches: [ master ]
   pull_request:
 
+concurrency:
+  group: api-gateway-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
-  test:
+  build-and-deploy:
     runs-on: ubuntu-latest
     
     steps:
@@ -27,32 +31,27 @@ jobs:
     - name: Run linter
       run: npm run lint:check
       
-    - name: Build application
-      run: npm run build
-
-  deploy:
-    needs: test
-    runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/master'
-    
-    steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-      
-    - name: Setup Node.js
-      uses: actions/setup-node@v4
-      with:
-        node-version: '18'
-        cache: 'npm'
-        cache-dependency-path: package-lock.json
-        
-    - name: Install dependencies
-      run: npm ci
+    - name: Run tests
+      run: npm run test
+      env:
+        CI: true
       
     - name: Build application
       run: npm run build
+      
+    - name: Remove dev dependencies
+      run: npm prune --omit=dev
+      
+    - name: Create deployment archive
+      run: |
+        mkdir -p deployment
+        cp -r dist deployment/
+        cp -r node_modules deployment/
+        cp package.json deployment/
+        tar -czf api-gateway-bundle.tgz -C deployment .
       
     - name: Deploy to server
+      if: github.ref == 'refs/heads/master'
       env:
         OVH_HOST: ${{ secrets.OVH_HOST }}
         OVH_USER: ${{ secrets.OVH_USER }}
@@ -69,16 +68,13 @@ jobs:
         # Создаем директорию на сервере
         ssh -i ~/.ssh/id_deploy -p "${OVH_PORT:-22}" "${OVH_USER}@${OVH_HOST}" "sudo mkdir -p ${REMOTE_DIR} && sudo chown -R \${USER}:\${USER} ${REMOTE_DIR}"
         
-        # on copie les fichiers
-        rsync -avz --delete --exclude='.user.ini' \
-          -e "ssh -i ~/.ssh/id_deploy -p ${OVH_PORT:-22}" \
-          dist/ "${OVH_USER}@${OVH_HOST}:${REMOTE_DIR}/dist/"
-        rsync -avz --exclude='.user.ini' \
-          -e "ssh -i ~/.ssh/id_deploy -p ${OVH_PORT:-22}" \
-          package.json "${OVH_USER}@${OVH_HOST}:${REMOTE_DIR}/"
+        # Копируем архив на сервер
+        scp -i ~/.ssh/id_deploy -P "${OVH_PORT:-22}" api-gateway-bundle.tgz "${OVH_USER}@${OVH_HOST}:${REMOTE_DIR}/"
         
-        # Устанавливаем зависимости на сервере и перезапускаем сервис
+        # Распаковываем и перезапускаем сервис
         ssh -i ~/.ssh/id_deploy -p "${OVH_PORT:-22}" "${OVH_USER}@${OVH_HOST}" "
           cd ${REMOTE_DIR} && 
-          npm install --production && 
-          pm2 restart api-gateway -f || pm2 start dist/main.js --name api-gateway"
+          tar -xzf api-gateway-bundle.tgz && 
+          rm api-gateway-bundle.tgz &&
+          NODE_ENV=production pm2 restart api-gateway --update-env -f || NODE_ENV=production pm2 start dist/main.js --name api-gateway &&
+          pm2 save"
