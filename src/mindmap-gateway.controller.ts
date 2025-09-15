@@ -13,9 +13,9 @@ export class MindmapGatewayController {
   @All("*")
   async proxyToMindmapService(@Req() req: Request, @Res() res: Response) {
     // Убираем /api/mindmap из пути для Mindmap Service
-    let targetPath = req.path.replace('/api/mindmap', '');
-    if (!targetPath) targetPath = '/';
-    
+    let targetPath = req.path.replace("/api/mindmap", "");
+    if (!targetPath) targetPath = "/";
+
     const url = `${this.mindmapServiceUrl}${targetPath}`;
 
     this.logger.log(`[API Gateway] ${req.method} ${req.url} -> ${url}`);
