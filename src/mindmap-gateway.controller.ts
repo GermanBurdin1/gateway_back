@@ -3,7 +3,7 @@ import { Controller, All, Req, Res, Logger } from "@nestjs/common";
 import { HttpService } from "@nestjs/axios";
 import { firstValueFrom } from "rxjs";
 import { Request, Response } from "express";
-import { Agent as HttpAgent } from 'http';
+import { Agent as HttpAgent } from "http";
 
 @Controller("mindmap")
 export class MindmapGatewayController {
