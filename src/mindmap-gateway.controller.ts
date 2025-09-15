@@ -10,7 +10,7 @@ export class MindmapGatewayController {
   private readonly base =
     process.env.MINDMAP_BASE_URL || "http://127.0.0.1:3002";
 
-  constructor(private readonly http: HttpService) { }
+  constructor(private readonly http: HttpService) {}
 
   // ловит ровно /api/mindmap
   @All()
@@ -50,12 +50,10 @@ export class MindmapGatewayController {
       this.logger.error(`[API Gateway] Proxy error: ${e.message}`);
       if (e.response) res.status(e.response.status).send(e.response.data);
       else
-        res
-          .status(502)
-          .json({
-            error: "Bad Gateway",
-            message: "Mindmap service unreachable",
-          });
+        res.status(502).json({
+          error: "Bad Gateway",
+          message: "Mindmap service unreachable",
+        });
     }
   }
 }
