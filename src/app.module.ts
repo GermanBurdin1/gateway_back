@@ -1,9 +1,3 @@
-// Полифилл для crypto в Node.js 18
-import { webcrypto } from 'crypto';
-if (!globalThis.crypto) {
-  globalThis.crypto = webcrypto as any;
-}
-
 import { Module } from "@nestjs/common";
 import { HttpModule } from "@nestjs/axios";
 import { AuthGatewayController } from "./auth-gateway.controller";
