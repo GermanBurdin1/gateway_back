@@ -15,24 +15,16 @@ export class MindmapGatewayController {
     const decodedUrl = decodeURIComponent(req.url);
     let targetUrl = decodedUrl;
 
-    // Преобразуем /mindmap в /mindmap для Mindmap Service
-    if (targetUrl.startsWith("/mindmap/")) {
-      targetUrl = targetUrl.replace("/mindmap/", "/");
-    }
+    // НЕ убираем /mindmap - Mindmap Service ожидает /mindmap/...
 
     const url = `${this.mindmapServiceUrl}${targetUrl}`;
 
     this.logger.log(`[API Gateway] ${req.method} ${req.url} -> ${url}`);
 
     try {
-      // Преобразуем /mindmap в /mindmap для Mindmap Service
+      // НЕ убираем /mindmap - Mindmap Service ожидает /mindmap/...
       let targetPath = req.path;
       this.logger.log(`[API Gateway] Original path: ${req.path}`);
-      
-      if (targetPath.startsWith("/mindmap/")) {
-        targetPath = targetPath.replace("/mindmap/", "/");
-        this.logger.log(`[API Gateway] Transformed path: ${targetPath}`);
-      }
 
       const requestConfig: any = {
         method: req.method,
