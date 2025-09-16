@@ -61,6 +61,7 @@ export class FilesGatewayController {
           host: undefined,
         },
         data: req.body,
+        responseType: req.path.startsWith('/uploads/') ? 'arraybuffer' : 'json',
       };
 
       if (req.method === "GET" && Object.keys(req.query).length > 0) {
@@ -75,9 +76,9 @@ export class FilesGatewayController {
         res.setHeader(key, response.headers[key]);
       });
 
-      // Для статических файлов передаем stream, для API - JSON
+      // Для статических файлов передаем buffer, для API - JSON
       if (req.path.startsWith('/uploads/')) {
-        res.status(response.status).send(response.data);
+        res.status(response.status).send(Buffer.from(response.data));
       } else {
         res.status(response.status).json(response.data);
       }
