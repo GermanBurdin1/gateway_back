@@ -15,6 +15,9 @@ async function bootstrap() {
     credentials: true,
   });
 
+  // Устанавливаем глобальный префикс /api
+  app.setGlobalPrefix('api');
+
   await app.listen(3011);
   console.log("🚀 API Gateway запущен на порту 3011");
   console.log("📍 Проксирует auth-service на http://localhost:3001");
