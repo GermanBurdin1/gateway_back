@@ -10,6 +10,17 @@ export class MindmapGatewayController {
 
   constructor(private readonly httpService: HttpService) {}
 
+  @All()
+  async proxyRoot(@Req() req: Request, @Res() res: Response) {
+    this.logger.log(`[API Gateway] === ROOT REQUEST ===`);
+    this.logger.log(`[API Gateway] Method: ${req.method}`);
+    this.logger.log(`[API Gateway] Original URL: ${req.url}`);
+    this.logger.log(`[API Gateway] Original Path: ${req.path}`);
+    
+    // Проксируем к Mindmap Service
+    return this.proxyToMindmapService(req, res);
+  }
+
   @All("*")
   async proxyToMindmapService(@Req() req: Request, @Res() res: Response) {
     this.logger.log(`[API Gateway] === NEW REQUEST ===`);
