@@ -27,8 +27,11 @@ export class MindmapGatewayController {
     try {
       // Преобразуем /mindmap в /mindmap для Mindmap Service
       let targetPath = req.path;
+      this.logger.log(`[API Gateway] Original path: ${req.path}`);
+      
       if (targetPath.startsWith("/mindmap/")) {
         targetPath = targetPath.replace("/mindmap/", "/");
+        this.logger.log(`[API Gateway] Transformed path: ${targetPath}`);
       }
 
       const requestConfig: any = {
@@ -43,11 +46,22 @@ export class MindmapGatewayController {
 
       if (req.method === "GET" && Object.keys(req.query).length > 0) {
         requestConfig.params = req.query;
+        this.logger.log(`[API Gateway] Query params: ${JSON.stringify(req.query)}`);
       }
+
+      this.logger.log(`[API Gateway] Request config: ${JSON.stringify({
+        method: requestConfig.method,
+        url: requestConfig.url,
+        hasData: !!requestConfig.data,
+        hasParams: !!requestConfig.params
+      })}`);
 
       const response = await firstValueFrom(
         this.httpService.request(requestConfig),
       );
+
+      this.logger.log(`[API Gateway] Response status: ${response.status}`);
+      this.logger.log(`[API Gateway] Response headers: ${JSON.stringify(response.headers)}`);
 
       Object.keys(response.headers).forEach((key) => {
         res.setHeader(key, response.headers[key]);
