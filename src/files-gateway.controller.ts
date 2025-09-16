@@ -1,100 +1,93 @@
-import { Controller, All, Req, Res, Logger, Get } from "@nestjs/common";
-import { HttpService } from "@nestjs/axios";
-import { firstValueFrom } from "rxjs";
-import { Request, Response } from "express";
+import { Controller, All, Get, Req, Res, Logger } from '@nestjs/common';
+import { HttpService } from '@nestjs/axios';
+import { firstValueFrom } from 'rxjs';
+import { Request, Response } from 'express';
 
-@Controller("files")
+@Controller('files')
 export class FilesGatewayController {
   private readonly logger = new Logger(FilesGatewayController.name);
-  private readonly filesServiceUrl = "http://localhost:3008";
+  private readonly base = 'http://127.0.0.1:3008'; // лучше 127.0.0.1, чтобы исключить ::1
 
-  constructor(private readonly httpService: HttpService) {}
+  constructor(private readonly http: HttpService) { }
 
+  // РОВНО /files
   @All()
-  async proxyRoot(@Req() req: Request, @Res() res: Response) {
-    this.logger.log(`[API Gateway] === FILES ROOT REQUEST ===`);
-    this.logger.log(`[API Gateway] Method: ${req.method}`);
-    this.logger.log(`[API Gateway] Original URL: ${req.url}`);
-    this.logger.log(`[API Gateway] Original Path: ${req.path}`);
-    
-    // Проксируем к Files Service
-    return this.proxyToFilesService(req, res);
+  root(@Req() req: Request, @Res() res: Response) {
+    return this.forwardApi(req, res);
   }
 
-  @Get("uploads/*")
-  async serveStaticFiles(@Req() req: Request, @Res() res: Response) {
-    this.logger.log(`[API Gateway] === STATIC FILE REQUEST ===`);
-    this.logger.log(`[API Gateway] Method: ${req.method}`);
-    this.logger.log(`[API Gateway] Original URL: ${req.url}`);
-    this.logger.log(`[API Gateway] Original Path: ${req.path}`);
-    
-    // Проксируем к Files Service
-    return this.proxyToFilesService(req, res);
-  }
+  // Статика: /files/uploads/...
+  @Get('uploads/*')
+  async uploads(@Req() req: Request, @Res() res: Response) {
+    // срезаем только префикс /files/ -> /uploads/...
+    const path = req.originalUrl.replace(/^\/api/, '').replace(/^\/files\//, '/');
+    const url = this.base + path;
 
-  @All("*")
-  async proxyToFilesService(@Req() req: Request, @Res() res: Response) {
-    const decodedUrl = decodeURIComponent(req.url);
-    let targetUrl = decodedUrl;
-
-    // Преобразуем /files/materials в /materials для File Service
-    if (targetUrl.startsWith("/files/")) {
-      targetUrl = targetUrl.replace("/files/", "/");
-    }
-
-    const url = `${this.filesServiceUrl}${targetUrl}`;
-
-    this.logger.log(`[API Gateway] ${req.method} ${req.url} -> ${url}`);
+    this.logger.log(`[FILES GATE] STATIC ${req.method} ${req.originalUrl} -> ${url}`);
 
     try {
-      // Преобразуем /files/materials в /materials для File Service
-      let targetPath = req.path;
-      if (targetPath.startsWith("/files/")) {
-        targetPath = targetPath.replace("/files/", "/");
-      }
+      const resp = await firstValueFrom(
+        this.http.request({
+          method: 'GET',
+          url,
+          // передаём range и прочее; host убираем
+          headers: { ...req.headers, host: undefined },
+          // КЛЮЧЕВОЕ: поток
+          responseType: 'stream',
+          // важно не зарубать 206 и прочие статусы
+          validateStatus: () => true,
+          timeout: 30000,
+        }),
+      );
 
-      const requestConfig: any = {
+      // Прокидываем заголовки апстрима
+      for (const [k, v] of Object.entries(resp.headers)) res.setHeader(k, v as any);
+      res.status(resp.status);
+
+      // Стримим тело
+      (resp.data as NodeJS.ReadableStream)
+        .on('error', (e: any) => {
+          this.logger.error(`[FILES GATE] stream error: ${e.message}`);
+          if (!res.headersSent) res.status(502);
+          res.end();
+        })
+        .pipe(res);
+    } catch (e: any) {
+      this.logger.error(`[FILES GATE] STATIC proxy error: ${e.message}`);
+      if (!res.headersSent) res.status(502).end();
+    }
+  }
+
+  // Остальные пути: /files/... -> API JSON
+  @All('*')
+  async any(@Req() req: Request, @Res() res: Response) {
+    return this.forwardApi(req, res);
+  }
+
+  private async forwardApi(req: Request, res: Response) {
+    // /files/materials -> /materials
+    const path = req.path.replace(/^\/files\//, '/');
+    const url = this.base + path;
+
+    this.logger.log(`[FILES GATE] API ${req.method} ${req.originalUrl} -> ${url}`);
+
+    try {
+      const cfg: any = {
         method: req.method,
-        url: `${this.filesServiceUrl}${targetPath}`,
-        headers: {
-          ...req.headers,
-          host: undefined,
-        },
+        url,
+        headers: { ...req.headers, host: undefined },
         data: req.body,
-        responseType: req.path.startsWith('/uploads/') ? 'arraybuffer' : 'json',
+        params: req.method === 'GET' ? req.query : undefined,
+        timeout: 15000,
       };
+      const resp = await firstValueFrom(this.http.request(cfg));
 
-      if (req.method === "GET" && Object.keys(req.query).length > 0) {
-        requestConfig.params = req.query;
-      }
-
-      const response = await firstValueFrom(
-        this.httpService.request(requestConfig),
-      );
-
-      Object.keys(response.headers).forEach((key) => {
-        res.setHeader(key, response.headers[key]);
-      });
-
-      // Для статических файлов передаем buffer, для API - JSON
-      if (req.path.startsWith('/uploads/')) {
-        res.status(response.status).send(Buffer.from(response.data));
-      } else {
-        res.status(response.status).json(response.data);
-      }
-    } catch (error) {
-      this.logger.error(
-        `[API Gateway] Ошибка при проксировании к files-service: ${error.message}`,
-      );
-
-      if (error.response) {
-        res.status(error.response.status).json(error.response.data);
-      } else {
-        res.status(500).json({
-          error: "Gateway Error",
-          message: "Ошибка API Gateway",
-        });
-      }
+      for (const [k, v] of Object.entries(resp.headers)) res.setHeader(k, v as any);
+      res.status(resp.status).send(resp.data);
+    } catch (e: any) {
+      this.logger.error(`[FILES GATE] API proxy error: ${e.message}`);
+      if (e.response) res.status(e.response.status).send(e.response.data);
+      else res.status(502).json({ error: 'Bad Gateway', message: 'files-service unreachable' });
     }
   }
 }
