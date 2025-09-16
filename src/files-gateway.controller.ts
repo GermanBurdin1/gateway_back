@@ -75,7 +75,12 @@ export class FilesGatewayController {
         res.setHeader(key, response.headers[key]);
       });
 
-      res.status(response.status).json(response.data);
+      // Для статических файлов передаем stream, для API - JSON
+      if (req.path.startsWith('/uploads/')) {
+        res.status(response.status).send(response.data);
+      } else {
+        res.status(response.status).json(response.data);
+      }
     } catch (error) {
       this.logger.error(
         `[API Gateway] Ошибка при проксировании к files-service: ${error.message}`,
