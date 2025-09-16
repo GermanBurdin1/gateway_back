@@ -1,4 +1,4 @@
-import { Controller, All, Req, Res, Logger } from "@nestjs/common";
+import { Controller, All, Req, Res, Logger, Get } from "@nestjs/common";
 import { HttpService } from "@nestjs/axios";
 import { firstValueFrom } from "rxjs";
 import { Request, Response } from "express";
@@ -13,6 +13,17 @@ export class FilesGatewayController {
   @All()
   async proxyRoot(@Req() req: Request, @Res() res: Response) {
     this.logger.log(`[API Gateway] === FILES ROOT REQUEST ===`);
+    this.logger.log(`[API Gateway] Method: ${req.method}`);
+    this.logger.log(`[API Gateway] Original URL: ${req.url}`);
+    this.logger.log(`[API Gateway] Original Path: ${req.path}`);
+    
+    // Проксируем к Files Service
+    return this.proxyToFilesService(req, res);
+  }
+
+  @Get("uploads/*")
+  async serveStaticFiles(@Req() req: Request, @Res() res: Response) {
+    this.logger.log(`[API Gateway] === STATIC FILE REQUEST ===`);
     this.logger.log(`[API Gateway] Method: ${req.method}`);
     this.logger.log(`[API Gateway] Original URL: ${req.url}`);
     this.logger.log(`[API Gateway] Original Path: ${req.path}`);
