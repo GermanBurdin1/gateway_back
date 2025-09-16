@@ -10,6 +10,17 @@ export class FilesGatewayController {
 
   constructor(private readonly httpService: HttpService) {}
 
+  @All()
+  async proxyRoot(@Req() req: Request, @Res() res: Response) {
+    this.logger.log(`[API Gateway] === FILES ROOT REQUEST ===`);
+    this.logger.log(`[API Gateway] Method: ${req.method}`);
+    this.logger.log(`[API Gateway] Original URL: ${req.url}`);
+    this.logger.log(`[API Gateway] Original Path: ${req.path}`);
+    
+    // Проксируем к Files Service
+    return this.proxyToFilesService(req, res);
+  }
+
   @All("*")
   async proxyToFilesService(@Req() req: Request, @Res() res: Response) {
     const decodedUrl = decodeURIComponent(req.url);
