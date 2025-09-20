@@ -9,10 +9,22 @@ async function bootstrap() {
   app.useWebSocketAdapter(new IoAdapter(app));
 
   app.enableCors({
-    origin: "http://localhost:4200",
-    methods: "GET,HEAD,PUT,PATCH,POST,DELETE",
-    allowedHeaders: "Content-Type, Authorization",
+    origin: [
+      "http://localhost:4200",
+      "http://135.125.107.45:4200",
+    ],
+    methods: "GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS",
+    allowedHeaders: [
+      "Content-Type", 
+      "Authorization", 
+      "X-Requested-With",
+      "Accept",
+      "Origin"
+    ],
+    exposedHeaders: ["X-Total-Count"],
     credentials: true,
+    maxAge: 86400, // 24 heures
+    optionsSuccessStatus: 200
   });
 
   await app.listen(3011);
