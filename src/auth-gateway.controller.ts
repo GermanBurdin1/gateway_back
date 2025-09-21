@@ -30,10 +30,12 @@ export class AuthGatewayController {
     this.logger.log(`[API Gateway] Body:`, req.body);
 
     try {
-      // Преобразуем /auth/goals в /goals для Auth Service
+      // Преобразуем пути для Auth Service
       let targetPath = req.path;
       if (targetPath.startsWith("/auth/goals")) {
         targetPath = targetPath.replace("/auth/goals", "/goals");
+      } else if (targetPath.startsWith("/auth/teacher-profile")) {
+        targetPath = targetPath.replace("/auth/teacher-profile", "/teacher-profile");
       }
 
       // Если это GET запрос с query параметрами, используем params
