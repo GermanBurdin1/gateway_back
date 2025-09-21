@@ -22,6 +22,7 @@ export class LessonsGatewayController {
       let targetPath = req.path;
       if (targetPath.startsWith("/api/lessons")) {
         targetPath = targetPath.replace("/api/lessons", "/lessons");
+        this.logger.log(`[API Gateway] Path transformed: ${req.path} -> ${targetPath}`);
       }
 
       const requestConfig: any = {
