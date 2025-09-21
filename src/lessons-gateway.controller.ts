@@ -18,9 +18,15 @@ export class LessonsGatewayController {
     this.logger.log(`[API Gateway] ${req.method} ${req.url} -> ${url}`);
 
     try {
+      // Преобразуем /api/lessons в /lessons для Lessons Service
+      let targetPath = req.path;
+      if (targetPath.startsWith("/api/lessons")) {
+        targetPath = targetPath.replace("/api/lessons", "/lessons");
+      }
+
       const requestConfig: any = {
         method: req.method,
-        url: `${this.lessonsServiceUrl}${req.path}`,
+        url: `${this.lessonsServiceUrl}${targetPath}`,
         headers: {
           ...req.headers,
           host: undefined,
