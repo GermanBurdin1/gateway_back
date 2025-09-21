@@ -36,6 +36,8 @@ export class AuthGatewayController {
         targetPath = targetPath.replace("/auth/goals", "/goals");
       } else if (targetPath.startsWith("/auth/teacher-profile")) {
         targetPath = targetPath.replace("/auth/teacher-profile", "/teacher-profile");
+      } else if (targetPath.startsWith("/auth/reviews")) {
+        targetPath = targetPath.replace("/auth/reviews", "/reviews");
       }
 
       // Если это GET запрос с query параметрами, используем params
