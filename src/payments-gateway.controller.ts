@@ -12,15 +12,28 @@ export class PaymentsGatewayController {
 
   @All("*")
   async proxyToPaymentsService(@Req() req: Request, @Res() res: Response) {
+    this.logger.log(`[API Gateway] === PAYMENTS GATEWAY DEBUG ===`);
+    this.logger.log(`[API Gateway] Original req.url: ${req.url}`);
+    this.logger.log(`[API Gateway] Original req.path: ${req.path}`);
+    this.logger.log(`[API Gateway] Original req.baseUrl: ${req.baseUrl}`);
+    this.logger.log(`[API Gateway] Original req.originalUrl: ${req.originalUrl}`);
+
     const decodedUrl = decodeURIComponent(req.url);
     const url = `${this.paymentsServiceUrl}${decodedUrl}`;
 
     this.logger.log(`[API Gateway] ${req.method} ${req.url} -> ${url}`);
 
     try {
+      // Просто используем путь как есть, так как фронтенд теперь отправляет правильные URL
+      const targetPath = req.path;
+      this.logger.log(`[API Gateway] Using targetPath: ${targetPath}`);
+
+      const finalUrl = `${this.paymentsServiceUrl}${targetPath}`;
+      this.logger.log(`[API Gateway] Final URL: ${finalUrl}`);
+
       const requestConfig: any = {
         method: req.method,
-        url: `${this.paymentsServiceUrl}${req.path}`,
+        url: finalUrl,
         headers: {
           ...req.headers,
           host: undefined,
