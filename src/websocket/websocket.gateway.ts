@@ -43,15 +43,15 @@ export class VideoCallGateway
   private groupRooms = new Map<string, GroupRoom>(); // roomId -> room
 
   handleConnection(client: Socket) {
-    this.logger.log(`🔌 Клиент подключен: ${client.id}`);
+    this.logger.log(`🔌 Client connecté: ${client.id}`);
   }
 
   handleDisconnect(client: Socket) {
-    // Находим и удаляем пользователя
+    // Trouver et supprimer l'utilisateur
     for (const [userId, socketId] of this.connectedUsers.entries()) {
       if (socketId === client.id) {
         this.connectedUsers.delete(userId);
-        this.logger.log(`👋 Пользователь ${userId} отключен`);
+        this.logger.log(`👋 Utilisateur ${userId} déconnecté`);
         break;
       }
     }
@@ -64,7 +64,7 @@ export class VideoCallGateway
   ) {
     this.connectedUsers.set(userId, client.id);
     this.logger.log(
-      `📝 Пользователь ${userId} зарегистрирован с сокетом ${client.id}`,
+      `📝 Utilisateur ${userId} enregistré avec le socket ${client.id}`,
     );
 
     client.emit("registered", { success: true, userId });
@@ -75,73 +75,73 @@ export class VideoCallGateway
     @MessageBody() data: CallData,
     @ConnectedSocket() client: Socket,
   ) {
-    this.logger.log(`📞 Входящий вызов от ${data.from} к ${data.to}`);
+    this.logger.log(`📞 Appel entrant de ${data.from} vers ${data.to}`);
 
     const targetSocketId = this.connectedUsers.get(data.to);
 
     if (targetSocketId) {
-      // Отправляем приглашение целевому пользователю
+      // Envoyer l'invitation à l'utilisateur cible
       this.server.to(targetSocketId).emit("call_invite", {
         from: data.from,
         to: data.to,
         channelName: data.channelName || "lesson_channel",
       });
 
-      this.logger.log(`✅ Приглашение отправлено пользователю ${data.to}`);
+      this.logger.log(`✅ Invitation envoyée à l'utilisateur ${data.to}`);
     } else {
-      // Пользователь не в сети
+      // L'utilisateur n'est pas en ligne
       client.emit("call_failed", {
         reason: "user_offline",
         targetUser: data.to,
       });
 
-      this.logger.warn(`⚠️ Пользователь ${data.to} не в сети`);
+      this.logger.warn(`⚠️ Utilisateur ${data.to} hors ligne`);
     }
   }
 
   @SubscribeMessage("call_accept")
   handleCallAccept(@MessageBody() data: CallData) {
-    this.logger.log(`✅ Пользователь ${data.from} принял вызов от ${data.to}`);
+    this.logger.log(`✅ Utilisateur ${data.from} a accepté l'appel de ${data.to}`);
 
     const initiatorSocketId = this.connectedUsers.get(data.to);
 
     if (initiatorSocketId) {
-      // Уведомляем инициатора о принятии вызова
+      // Notifier l'initiateur de l'acceptation de l'appel
       this.server.to(initiatorSocketId).emit("call_accept", {
         from: data.from,
         to: data.to,
         channelName: data.channelName || "lesson_channel",
       });
 
-      this.logger.log(`📢 Инициатор ${data.to} уведомлен о принятии вызова`);
+      this.logger.log(`📢 Initiateur ${data.to} notifié de l'acceptation de l'appel`);
     }
   }
 
   @SubscribeMessage("call_reject")
   handleCallReject(@MessageBody() data: CallData) {
     this.logger.log(
-      `❌ Пользователь ${data.from} отклонил вызов от ${data.to}`,
+      `❌ Utilisateur ${data.from} a rejeté l'appel de ${data.to}`,
     );
 
     const initiatorSocketId = this.connectedUsers.get(data.to);
 
     if (initiatorSocketId) {
-      // Уведомляем инициатора об отклонении вызова
+      // Notifier l'initiateur du rejet de l'appel
       this.server.to(initiatorSocketId).emit("call_reject", {
         from: data.from,
         to: data.to,
         reason: "user_declined",
       });
 
-      this.logger.log(`📢 Инициатор ${data.to} уведомлен об отклонении вызова`);
+      this.logger.log(`📢 Initiateur ${data.to} notifié du rejet de l'appel`);
     }
   }
 
   @SubscribeMessage("call_end")
   handleCallEnd(@MessageBody() data: CallData) {
-    this.logger.log(`🔴 Звонок завершен между ${data.from} и ${data.to}`);
+    this.logger.log(`🔴 Appel terminé entre ${data.from} et ${data.to}`);
 
-    // Уведомляем обе стороны о завершении звонка
+    // Notifier les deux parties de la fin de l'appel
     const targetSocketId = this.connectedUsers.get(data.to);
     const fromSocketId = this.connectedUsers.get(data.from);
 
@@ -154,33 +154,33 @@ export class VideoCallGateway
     }
   }
 
-  // Метод для получения списка онлайн пользователей (для админ панели)
+  // Méthode pour obtenir la liste des utilisateurs en ligne (pour le panneau d'administration)
   @SubscribeMessage("get_online_users")
   handleGetOnlineUsers(@ConnectedSocket() client: Socket) {
     const onlineUsers = Array.from(this.connectedUsers.keys());
     client.emit("online_users", onlineUsers);
 
     this.logger.log(
-      `📊 Отправлен список онлайн пользователей: ${onlineUsers.length} человек`,
+      `📊 Liste des utilisateurs en ligne envoyée: ${onlineUsers.length} personnes`,
     );
   }
 
-  // === ГРУППОВЫЕ КОНФЕРЕНЦИИ ===
+  // === CONFÉRENCES DE GROUPE ===
 
   @SubscribeMessage("room_created")
   handleRoomCreated(@MessageBody() data: { room: GroupRoom; creator: string }) {
     this.logger.log(
-      `🏫 Создана комната: ${data.room.name} (${data.room.id}) пользователем ${data.creator}`,
+      `🏫 Salle créée: ${data.room.name} (${data.room.id}) par l'utilisateur ${data.creator}`,
     );
 
-    // Сохраняем комнату
+    // Sauvegarder la salle
     this.groupRooms.set(data.room.id, data.room);
 
-    // Уведомляем всех о новой комнате
+    // Notifier tout le monde de la nouvelle salle
     this.server.emit("room_created", { room: data.room });
 
     this.logger.log(
-      `💾 Комната сохранена. Всего комнат: ${this.groupRooms.size}`,
+      `💾 Salle sauvegardée. Total des salles: ${this.groupRooms.size}`,
     );
   }
 
