@@ -413,6 +413,210 @@ export class VideoCallGateway
     }
   }
 
+  // === ПРИГЛАШЕНИЯ В КЛАССЫ ===
+
+  @SubscribeMessage("class_invite")
+  async handleClassInvite(
+    @MessageBody()
+    data: {
+      to: string;
+      from: string;
+      classData: {
+        id: string;
+        name: string;
+        level: string;
+        description: string;
+        teacherName: string;
+      };
+    },
+    @ConnectedSocket() client: Socket,
+  ) {
+    this.logger.log(
+      `📚 Приглашение в класс "${data.classData.name}": ${data.from} → ${data.to}`,
+    );
+
+    // Получаем реальное имя преподавателя из auth-service
+    let teacherName = data.classData.teacherName;
+    try {
+      // TODO: Добавить AuthClient в WebSocket gateway для получения имени преподавателя
+      // Пока используем переданное имя или дефолтное
+      this.logger.log(`[WebSocketGateway] Using teacher name: ${teacherName}`);
+    } catch (error) {
+      this.logger.warn(`[WebSocketGateway] Error getting teacher name: ${error.message}`);
+      teacherName = 'Professeur';
+    }
+
+    const targetSocketId = this.connectedUsers.get(data.to);
+
+    if (targetSocketId) {
+      this.server.to(targetSocketId).emit("class_invitation", {
+        classId: data.classData.id,
+        className: data.classData.name,
+        classLevel: data.classData.level,
+        classDescription: data.classData.description,
+        teacherId: data.from,
+        teacherName: teacherName,
+      });
+
+      this.logger.log(`✅ Приглашение в класс отправлено пользователю ${data.to}`);
+    } else {
+      client.emit("class_invite_failed", {
+        reason: "user_offline",
+        targetUser: data.to,
+      });
+
+      this.logger.warn(`❌ Пользователь ${data.to} не в сети`);
+    }
+  }
+
+  @SubscribeMessage("class_accept")
+  handleClassAccept(
+    @MessageBody()
+    data: {
+      to: string;
+      from: string;
+      classId: string;
+    },
+    @ConnectedSocket() client: Socket,
+  ) {
+    this.logger.log(
+      `✅ Пользователь ${data.from} принял приглашение в класс ${data.classId}`,
+    );
+
+    const teacherSocketId = this.connectedUsers.get(data.to);
+    if (teacherSocketId) {
+      this.server.to(teacherSocketId).emit("class_invitation_accepted", {
+        classId: data.classId,
+        studentId: data.from,
+      });
+
+      this.logger.log(`📢 Преподаватель ${data.to} уведомлен о принятии приглашения`);
+    }
+  }
+
+  @SubscribeMessage("class_reject")
+  handleClassReject(
+    @MessageBody()
+    data: {
+      to: string;
+      from: string;
+      classId: string;
+    },
+    @ConnectedSocket() client: Socket,
+  ) {
+    this.logger.log(
+      `❌ Пользователь ${data.from} отклонил приглашение в класс ${data.classId}`,
+    );
+
+    const teacherSocketId = this.connectedUsers.get(data.to);
+    if (teacherSocketId) {
+      this.server.to(teacherSocketId).emit("class_invitation_rejected", {
+        classId: data.classId,
+        studentId: data.from,
+      });
+
+      this.logger.log(`📢 Преподаватель ${data.to} уведомлен об отклонении приглашения`);
+    }
+  }
+
+  // === ПРИГЛАШЕНИЯ В УРОКИ ===
+
+  @SubscribeMessage("invite_to_lesson")
+  handleInviteToLesson(
+    @MessageBody()
+    data: {
+      classId: string;
+      studentIds: string[];
+      teacherId: string;
+      lessonName: string;
+    },
+    @ConnectedSocket() client: Socket,
+  ) {
+    this.logger.log(
+      `📚 Приглашение в урок "${data.lessonName}": ${data.teacherId} → ${data.studentIds.join(', ')}`,
+    );
+
+    // Отправляем приглашения каждому студенту
+    data.studentIds.forEach(studentId => {
+      const studentSocketId = this.connectedUsers.get(studentId);
+      if (studentSocketId) {
+        this.server.to(studentSocketId).emit("lesson_invitation", {
+          classId: data.classId,
+          lessonName: data.lessonName,
+          teacherId: data.teacherId,
+          teacherName: "Преподаватель", // Можно получить из базы данных
+        });
+
+        this.logger.log(
+          `✅ Приглашение в урок отправлено студенту ${studentId}`,
+        );
+      } else {
+        this.logger.warn(`❌ Студент ${studentId} не в сети`);
+        client.emit("invite_failed", { 
+          reason: `Студент ${studentId} не в сети`,
+          studentId: studentId
+        });
+      }
+    });
+
+    // Уведомляем преподавателя о статусе приглашений
+    client.emit("lesson_invitations_sent", {
+      totalSent: data.studentIds.filter(id => this.connectedUsers.has(id)).length,
+      totalFailed: data.studentIds.filter(id => !this.connectedUsers.has(id)).length,
+      failedStudents: data.studentIds.filter(id => !this.connectedUsers.has(id))
+    });
+  }
+
+  @SubscribeMessage("accept_lesson_invitation")
+  handleAcceptLessonInvitation(
+    @MessageBody()
+    data: {
+      classId: string;
+      teacherId: string;
+      studentId: string;
+    },
+    @ConnectedSocket() client: Socket,
+  ) {
+    this.logger.log(
+      `✅ Студент ${data.studentId} принял приглашение в урок ${data.classId}`,
+    );
+
+    // Уведомляем преподавателя о принятии приглашения
+    const teacherSocketId = this.connectedUsers.get(data.teacherId);
+    if (teacherSocketId) {
+      this.server.to(teacherSocketId).emit("lesson_invitation_accepted", {
+        classId: data.classId,
+        studentId: data.studentId,
+        studentName: "Студент", // Можно получить из базы данных
+      });
+    }
+  }
+
+  @SubscribeMessage("reject_lesson_invitation")
+  handleRejectLessonInvitation(
+    @MessageBody()
+    data: {
+      classId: string;
+      teacherId: string;
+      studentId: string;
+    },
+    @ConnectedSocket() client: Socket,
+  ) {
+    this.logger.log(
+      `❌ Студент ${data.studentId} отклонил приглашение в урок ${data.classId}`,
+    );
+
+    // Уведомляем преподавателя об отклонении приглашения
+    const teacherSocketId = this.connectedUsers.get(data.teacherId);
+    if (teacherSocketId) {
+      this.server.to(teacherSocketId).emit("lesson_invitation_rejected", {
+        classId: data.classId,
+        studentId: data.studentId,
+        studentName: "Студент", // Можно получить из базы данных
+      });
+    }
+  }
+
   @SubscribeMessage("remove_from_room")
   handleRemoveFromRoom(
     @MessageBody()
