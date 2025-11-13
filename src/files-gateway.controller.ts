@@ -84,6 +84,8 @@ export class FilesGatewayController {
     );
 
     try {
+      const contentType = (req.headers["content-type"] || "") as string;
+      const isMultipart = contentType.startsWith("multipart/form-data");
       const cfg: any = {
         method: req.method,
         url,
@@ -95,10 +97,9 @@ export class FilesGatewayController {
           origin: undefined,
         },
         // КЛЮЧЕВОЕ: шлём ВЕСЬ исходный поток, чтобы multipart с файлом дошёл
-        data: req,
+        data: isMultipart ? req : req.body,
         params: req.method === "GET" ? req.query : undefined,
-        // Видео и большие файлы могут идти дольше 15 секунд
-        timeout: 300000, // 5 минут, под себя можешь потом уменьшить/настроить
+        timeout: 300000,
         maxBodyLength: Infinity,
         maxContentLength: Infinity,
       };
