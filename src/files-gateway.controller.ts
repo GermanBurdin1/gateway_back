@@ -1,14 +1,14 @@
-import { Controller, All, Get, Req, Res, Logger } from '@nestjs/common';
-import { HttpService } from '@nestjs/axios';
-import { firstValueFrom } from 'rxjs';
-import { Request, Response } from 'express';
+import { Controller, All, Get, Req, Res, Logger } from "@nestjs/common";
+import { HttpService } from "@nestjs/axios";
+import { firstValueFrom } from "rxjs";
+import { Request, Response } from "express";
 
-@Controller('files')
+@Controller("files")
 export class FilesGatewayController {
   private readonly logger = new Logger(FilesGatewayController.name);
-  private readonly base = 'http://127.0.0.1:3008'; // лучше 127.0.0.1, чтобы исключить ::1
+  private readonly base = "http://127.0.0.1:3008"; // лучше 127.0.0.1, чтобы исключить ::1
 
-  constructor(private readonly http: HttpService) { }
+  constructor(private readonly http: HttpService) {}
 
   // РОВНО /files
   @All()
@@ -17,23 +17,27 @@ export class FilesGatewayController {
   }
 
   // Статика: /files/uploads/...
-  @Get('uploads/*')
+  @Get("uploads/*")
   async uploads(@Req() req: Request, @Res() res: Response) {
     // срезаем только префикс /files/ -> /uploads/...
-    const path = req.originalUrl.replace(/^\/api/, '').replace(/^\/files\//, '/');
+    const path = req.originalUrl
+      .replace(/^\/api/, "")
+      .replace(/^\/files\//, "/");
     const url = this.base + path;
 
-    this.logger.log(`[FILES GATE] STATIC ${req.method} ${req.originalUrl} -> ${url}`);
+    this.logger.log(
+      `[FILES GATE] STATIC ${req.method} ${req.originalUrl} -> ${url}`,
+    );
 
     try {
       const resp = await firstValueFrom(
         this.http.request({
-          method: 'GET',
+          method: "GET",
           url,
           // передаём range и прочее; host убираем
           headers: { ...req.headers, host: undefined },
           // КЛЮЧЕВОЕ: поток
-          responseType: 'stream',
+          responseType: "stream",
           // важно не зарубать 206 и прочие статусы
           validateStatus: () => true,
           timeout: 30000,
@@ -41,12 +45,13 @@ export class FilesGatewayController {
       );
 
       // Прокидываем заголовки апстрима
-      for (const [k, v] of Object.entries(resp.headers)) res.setHeader(k, v as any);
+      for (const [k, v] of Object.entries(resp.headers))
+        res.setHeader(k, v as any);
       res.status(resp.status);
 
       // Стримим тело
       (resp.data as NodeJS.ReadableStream)
-        .on('error', (e: any) => {
+        .on("error", (e: any) => {
           this.logger.error(`[FILES GATE] stream error: ${e.message}`);
           if (!res.headersSent) res.status(502);
           res.end();
@@ -59,35 +64,60 @@ export class FilesGatewayController {
   }
 
   // Остальные пути: /files/... -> API JSON
-  @All('*')
+  @All("*")
   async any(@Req() req: Request, @Res() res: Response) {
     return this.forwardApi(req, res);
   }
 
   private async forwardApi(req: Request, res: Response) {
+    const originalPath = req.originalUrl.replace(/^\/api/, ""); // напр. "/files/upload"
+    let path = originalPath;
     // /files/materials -> /materials
-    const path = req.path.replace(/^\/files\//, '/');
+    if (originalPath.startsWith("/files/materials")) {
+      // "/files/materials/..." -> "/materials/..."
+      path = originalPath.replace(/^\/files\//, "/");
+    }
     const url = this.base + path;
 
-    this.logger.log(`[FILES GATE] API ${req.method} ${req.originalUrl} -> ${url}`);
+    this.logger.log(
+      `[FILES GATE] API ${req.method} ${req.originalUrl} -> ${url}`,
+    );
 
     try {
       const cfg: any = {
         method: req.method,
         url,
-        headers: { ...req.headers, host: undefined },
-        data: req.body,
-        params: req.method === 'GET' ? req.query : undefined,
-        timeout: 15000,
+        headers: {
+          ...req.headers,
+          host: undefined,
+          // content-length и origin можно выкинуть, чтобы axios сам посчитал
+          "content-length": undefined,
+          origin: undefined,
+        },
+        // КЛЮЧЕВОЕ: шлём ВЕСЬ исходный поток, чтобы multipart с файлом дошёл
+        data: req,
+        params: req.method === "GET" ? req.query : undefined,
+        // Видео и большие файлы могут идти дольше 15 секунд
+        timeout: 300000, // 5 минут, под себя можешь потом уменьшить/настроить
+        maxBodyLength: Infinity,
+        maxContentLength: Infinity,
       };
+
       const resp = await firstValueFrom(this.http.request(cfg));
 
-      for (const [k, v] of Object.entries(resp.headers)) res.setHeader(k, v as any);
+      for (const [k, v] of Object.entries(resp.headers)) {
+        res.setHeader(k, v as any);
+      }
       res.status(resp.status).send(resp.data);
     } catch (e: any) {
       this.logger.error(`[FILES GATE] API proxy error: ${e.message}`);
-      if (e.response) res.status(e.response.status).send(e.response.data);
-      else res.status(502).json({ error: 'Bad Gateway', message: 'files-service unreachable' });
+      if (e.response) {
+        res.status(e.response.status).send(e.response.data);
+      } else {
+        res
+          .status(502)
+          .json({ error: "Bad Gateway", message: "files-service unreachable" });
+      }
     }
   }
 }
