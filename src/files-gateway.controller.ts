@@ -86,6 +86,15 @@ export class FilesGatewayController {
     try {
       const contentType = (req.headers["content-type"] || "") as string;
       const isMultipart = contentType.startsWith("multipart/form-data");
+      
+      // Для POST запросов с query параметрами, убираем их из params, чтобы избежать дублирования
+      // если они уже есть в URL
+      let queryParams = req.method === "GET" ? req.query : undefined;
+      if (req.method === "POST" && url.includes("?")) {
+        // Если URL уже содержит query параметры, не передаем их отдельно
+        queryParams = undefined;
+      }
+      
       const cfg: any = {
         method: req.method,
         url,
@@ -98,7 +107,7 @@ export class FilesGatewayController {
         },
         // КЛЮЧЕВОЕ: шлём ВЕСЬ исходный поток, чтобы multipart с файлом дошёл
         data: isMultipart ? req : req.body,
-        params: req.method === "GET" ? req.query : undefined,
+        params: queryParams,
         timeout: 300000,
         maxBodyLength: Infinity,
         maxContentLength: Infinity,

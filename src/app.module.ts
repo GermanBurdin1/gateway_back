@@ -4,6 +4,7 @@ import { ConfigModule } from "@nestjs/config";
 import { AuthGatewayController } from "./auth-gateway.controller";
 import { FilesGatewayController } from "./files-gateway.controller";
 import { LessonsGatewayController } from "./lessons-gateway.controller";
+import { CoursesGatewayController } from "./courses-gateway.controller";
 import { VocabularyGatewayController } from "./vocabulary-gateway.controller";
 import { StatisticsGatewayController } from "./statistics-gateway.controller";
 import { MindmapGatewayController } from "./mindmap-gateway.controller";
@@ -22,6 +23,7 @@ import { AgoraModule } from "./agora/agora.module";
     AuthGatewayController,
     FilesGatewayController,
     LessonsGatewayController,
+    CoursesGatewayController,
     VocabularyGatewayController,
     StatisticsGatewayController,
     MindmapGatewayController,
